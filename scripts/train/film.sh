@@ -1,9 +1,14 @@
 #!/bin/bash
 
-checkpoint_path="data/film.pt"
-log_path="data/film.log"
+exp_name=film
+
 python scripts/train_model.py \
-  --checkpoint_path $checkpoint_path \
+  --train_question_h5 "$data_dir/train_questions.h5" \
+  --val_question_h5 "$data_dir/val_questions.h5" \
+  --train_features_h5 "$data_dir/train_features.h5" \
+  --val_features_h5 "$data_dir/val_features.h5" \
+  --vocab_json "$data_dir/vocab.json" \
+  --checkpoint_path "$exp_dir"/"$exp_name".pt \
   --model_type FiLM \
   --num_iterations 20000000 \
   --print_verbose_every 20000000 \
@@ -45,4 +50,4 @@ python scripts/train_model.py \
   --use_beta 1 \
   --condition_method bn-film \
   --program_generator_parameter_efficient 1 \
-  | tee $log_path
+  | tee "$exp_dir"/"$exp_name".log
