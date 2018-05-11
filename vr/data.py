@@ -87,18 +87,18 @@ class ClevrDataset(Dataset):
     feats = torch.FloatTensor(np.asarray(feats, dtype=np.float32))
 
     program_json = None
-    if program_seq is not None:
-      program_json_seq = []
-      print(program_seq)
-      for fn_idx in program_seq:
-        fn_str = self.vocab['program_idx_to_token'][fn_idx]
-        if fn_str == '<START>' or fn_str == '<END>': continue
-        fn = vr.programs.str_to_function(fn_str)
-        program_json_seq.append(fn)
-      if self.mode == 'prefix':
-        program_json = vr.programs.prefix_to_list(program_json_seq)
-      elif self.mode == 'postfix':
-        program_json = vr.programs.postfix_to_list(program_json_seq)
+    # if program_seq is not None:
+    #   program_json_seq = []
+    #
+    #   for fn_idx in program_seq:
+    #     fn_str = self.vocab['program_idx_to_token'][fn_idx]
+    #     if fn_str == '<START>' or fn_str == '<END>': continue
+    #     fn = vr.programs.str_to_function(fn_str)
+    #     program_json_seq.append(fn)
+    #   if self.mode == 'prefix':
+    #     program_json = vr.programs.prefix_to_list(program_json_seq)
+    #   elif self.mode == 'postfix':
+    #     program_json = vr.programs.postfix_to_list(program_json_seq)
 
     if q_type is None:
       return (question, image, feats, answer, program_seq, program_json)
