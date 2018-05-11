@@ -89,6 +89,7 @@ class ClevrDataset(Dataset):
     program_json = None
     if program_seq is not None:
       program_json_seq = []
+      print(program_seq)
       for fn_idx in program_seq:
         fn_str = self.vocab['program_idx_to_token'][fn_idx]
         if fn_str == '<START>' or fn_str == '<END>': continue
