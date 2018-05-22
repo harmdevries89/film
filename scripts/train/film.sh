@@ -10,6 +10,7 @@ python scripts/train_model.py \
   --vocab_json "$data_dir/vocab.json" \
   --checkpoint_path "$exp_dir"/"$exp_name".pt \
   --model_type FiLM \
+  --loader_num_workers 0 \
   --num_iterations 20000000 \
   --print_verbose_every 20000000 \
   --checkpoint_every 11000 \
@@ -18,7 +19,7 @@ python scripts/train_model.py \
   --optimizer Adam \
   --learning_rate 3e-4 \
   --batch_size 64 \
-  --use_coords 1 \
+  --use_coords 0 \
   --module_stem_batchnorm 1 \
   --module_stem_num_layers 1 \
   --module_batchnorm 1 \
@@ -39,7 +40,7 @@ python scripts/train_model.py \
   --module_dim 128 \
   --module_dropout 0e-2 \
   --module_stem_kernel_size 3 \
-  --module_kernel_size 3 \
+  --module_kernel_size 1 \
   --module_batchnorm_affine 0 \
   --module_num_layers 1 \
   --num_modules 4 \
