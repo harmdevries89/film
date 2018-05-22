@@ -344,7 +344,7 @@ def train_loop(args, train_loader, val_loader):
           ee_optimizer.step()
 
       if t % args.record_loss_every == 0:
-        running_loss += loss.data.cpu().numpy()[0]
+        running_loss += loss.item()
         avg_loss = running_loss / args.record_loss_every
         print(t, avg_loss)
         stats['train_losses'].append(avg_loss)
@@ -353,7 +353,7 @@ def train_loop(args, train_loader, val_loader):
           stats['train_rewards'].append(reward)
         running_loss = 0.0
       else:
-        running_loss += loss.data.cpu().numpy()[0]
+        running_loss += loss.item()
 
       if t % args.checkpoint_every == 0:
         num_checkpoints += 1
