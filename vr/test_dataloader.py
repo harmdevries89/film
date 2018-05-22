@@ -8,7 +8,7 @@ loader_kwargs = {
     'feature_h5': os.path.join(os.environ['data_dir'], 'train_features.h5'),
     'vocab': os.path.join(os.environ['data_dir'], 'vocab.json'),
     'batch_size': 64,
-    'shuffle': 1,
+    'shuffle': 0,
   }
 
 loader = ClevrDataLoader(**loader_kwargs)
