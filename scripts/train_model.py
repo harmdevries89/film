@@ -353,7 +353,7 @@ def train_loop(args, train_loader, val_loader):
           stats['train_rewards'].append(reward)
         running_loss = 0.0
       else:
-        running_loss += loss.data[0]
+        running_loss += loss.data.cpu().numpy()[0]
 
       if t % args.checkpoint_every == 0:
         num_checkpoints += 1
