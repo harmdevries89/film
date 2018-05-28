@@ -28,7 +28,7 @@ def eval_epoch(loader, film_gen, filmed_net, opt=None):
         total_loss += loss.cpu().data.numpy()
 
         _, preds = scores.data.cpu().max(1)
-        num_correct += sum([pred == tgt for pred, tgt in zip(preds, answers)])
+        num_correct += float(sum([pred == tgt for pred, tgt in zip(preds, answers)]))
         num_samples += preds.size(0)
 
         if opt is not None:
