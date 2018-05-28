@@ -114,6 +114,12 @@ if __name__ == '__main__':
 
     vocab = utils.load_vocab(args.vocab_json)
 
+    film_gen = FiLMGen().cuda()
+    filmed_net = FiLMedNet(vocab).cuda()
+
+    params = list(film_gen.parameters()) + list(filmed_net.parameters())
+    opt = optim.Adam(params)
+
     train_loader_kwargs = {
         'question_h5': args.train_question_h5,
         'feature_h5': args.train_features_h5,
@@ -132,16 +138,11 @@ if __name__ == '__main__':
         'num_workers': args.loader_num_workers,
     }
 
-    film_gen = FiLMGen().cuda()
-    filmed_net = FiLMedNet(vocab).cuda()
-
-    params = list(film_gen.parameters()) + list(filmed_net.parameters())
-    opt = optim.Adam(params)
-
     with ClevrDataLoader(**train_loader_kwargs) as train_loader, \
             ClevrDataLoader(**val_loader_kwargs) as val_loader:
-        for _ in range(100):
+        for _ in range(25):
             train_loss, train_acc = eval_epoch(train_loader, film_gen, filmed_net, opt=opt)
-            print(train_loss, train_acc)
+            valid_loss, valid_acc = eval_epoch(val_loader, film_gen, filmed_net)
+            print(train_loss, train_acc, valid_loss, valid_acc)
 
 
