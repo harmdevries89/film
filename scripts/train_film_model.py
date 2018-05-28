@@ -25,7 +25,7 @@ def eval_epoch(loader, film_gen, filmed_net, opt=None):
         scores = filmed_net.forward(feats_var, film_params)
 
         loss = loss_fn(scores, answers_var)
-        total_loss += loss.cpu().data.numpy()[0]
+        total_loss += loss.cpu().data.numpy()
 
         _, preds = scores.data.cpu().max(1)
         num_correct += sum([pred == tgt for pred, tgt in zip(preds, answers)])
