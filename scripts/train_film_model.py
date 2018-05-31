@@ -56,6 +56,12 @@ if __name__ == '__main__':
     parser.add_argument('--num_val_samples', default=None, type=int)
     parser.add_argument('--shuffle_train_data', default=1, type=int)
 
+    # RNN options
+    parser.add_argument('--rnn_wordvec_dim', default=300, type=int)
+    parser.add_argument('--rnn_hidden_dim', default=256, type=int)
+    parser.add_argument('--rnn_num_layers', default=2, type=int)
+    parser.add_argument('--rnn_dropout', default=0, type=float)
+
     # Module net / FiLMedNet options
     parser.add_argument('--module_stem_num_layers', default=2, type=int)
     parser.add_argument('--module_stem_batchnorm', default=0, type=int)
@@ -94,10 +100,16 @@ if __name__ == '__main__':
     parser.add_argument('--debug_every', default=float('inf'), type=float)  # inf for no pdb
     parser.add_argument('--print_verbose_every', default=float('inf'), type=float)  # inf for min print
 
+    parser.add_argument('--classifier_proj_dim', default=512, type=int)
+    parser.add_argument('--classifier_downsample', default='maxpool2',
+                        choices=['maxpool2', 'maxpool3', 'maxpool4', 'maxpool5', 'maxpool7', 'maxpoolfull', 'none',
+                                 'avgpool2', 'avgpool3', 'avgpool4', 'avgpool5', 'avgpool7', 'avgpoolfull',
+                                 'aggressive'])
+    parser.add_argument('--classifier_fc_dims', default='1024')
+    parser.add_argument('--classifier_batchnorm', default=0, type=int)
+    parser.add_argument('--classifier_dropout', default=0, type=float)
+
     parser.add_argument('--batch_size', default=64, type=int)
-    parser.add_argument('--num_iterations', default=100000, type=int)
-    parser.add_argument('--optimizer', default='Adam',
-                        choices=['Adadelta', 'Adagrad', 'Adam', 'Adamax', 'ASGD', 'RMSprop', 'SGD'])
     parser.add_argument('--learning_rate', default=5e-4, type=float)
     parser.add_argument('--reward_decay', default=0.9, type=float)
     parser.add_argument('--weight_decay', default=0, type=float)
@@ -114,11 +126,52 @@ if __name__ == '__main__':
 
     vocab = utils.load_vocab(args.vocab_json)
 
-    film_gen = FiLMGen().cuda()
-    filmed_net = FiLMedNet(vocab).cuda()
+    film_gen = FiLMGen(encoder_vocab_size=len(vocab['question_token_to_idx']),
+                       wordvec_dim=args.rnn_wordvec_dim,
+                       hidden_dim=args.rnn_hidden_size,
+                       rnn_num_layers=args.rnn_num_layers,
+                       rnn_dropout=0,
+                       output_batchnorm=False,
+                       bidirectional=False,
+                       encoder_type='gru',
+                       decoder_type='linear',
+                       gamma_option=args.gamma_option,
+                       gamma_baseline=1,
+                       num_modules=args.num_modules,
+                       module_num_layers=args.module_num_layers,
+                       module_dim=args.module,
+                       parameter_efficient=True)
+    film_gen = film_gen.cuda()
+    filmed_net = FiLMedNet(vocab,
+                           feature_dim=(1024, 14, 14),
+                           stem_num_layers=args.module_stem_num_layers,
+                           stem_batchnorm=args.module_stem_batchnorm,
+                           stem_kernel_size=args.module_stem_kernel_size,
+                           stem_stride=1,
+                           stem_padding=None,
+                           num_modules=args.num_modules,
+                           module_num_layers=args.module_num_layers,
+                           module_dim=128,
+                           module_residual=args.module_residual,
+                           module_batchnorm=args.module_batchnorm,
+                           module_batchnorm_affine=args.module_batchnorm_affine,
+                           module_dropout=args.module_dropout,
+                           module_input_proj=args.module_input_proj,
+                           module_kernel_size=args.module_kernel_size,
+                           classifier_proj_dim=args.classifier_proj_dim,
+                           classifier_downsample='maxpoolfull',
+                           classifier_fc_layers=(1024,),
+                           classifier_batchnorm=args.classifier_batchnorm,
+                           classifier_dropout=0,
+                           condition_method='bn-film',
+                           condition_pattern=[],
+                           use_gamma=True,
+                           use_beta=True,
+                           use_coords=args.use_coords)
+    filmed_net = filmed_net.cuda()
 
     params = list(film_gen.parameters()) + list(filmed_net.parameters())
-    opt = optim.Adam(params)
+    opt = optim.Adam(params, lr=args.learning_rate, weight_decay=args.weight_decay)
 
     train_loader_kwargs = {
         'question_h5': args.train_question_h5,
