@@ -139,7 +139,7 @@ if __name__ == '__main__':
                        gamma_baseline=1,
                        num_modules=args.num_modules,
                        module_num_layers=args.module_num_layers,
-                       module_dim=args.module,
+                       module_dim=args.module_dim,
                        parameter_efficient=True)
     film_gen = film_gen.cuda()
     filmed_net = FiLMedNet(vocab,
