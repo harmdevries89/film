@@ -12,7 +12,6 @@ python scripts/train_film_model.py \
   --loader_num_workers 1 \
   --record_loss_every 100 \
   --num_val_samples 149991 \
-  --optimizer Adam \
   --learning_rate 3e-4 \
   --batch_size 64 \
   --use_coords 1 \
