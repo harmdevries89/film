@@ -128,7 +128,7 @@ if __name__ == '__main__':
 
     film_gen = FiLMGen(encoder_vocab_size=len(vocab['question_token_to_idx']),
                        wordvec_dim=args.rnn_wordvec_dim,
-                       hidden_dim=args.rnn_hidden_size,
+                       hidden_dim=args.rnn_hidden_dim,
                        rnn_num_layers=args.rnn_num_layers,
                        rnn_dropout=0,
                        output_batchnorm=False,
