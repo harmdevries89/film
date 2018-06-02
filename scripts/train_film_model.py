@@ -194,7 +194,7 @@ if __name__ == '__main__':
         'vocab': vocab,
         'batch_size': args.batch_size,
         'shuffle': False,
-        'max_samples': 100,
+        'max_samples': args.num_train_samples,
         'num_workers': args.loader_num_workers,
     }
     val_loader_kwargs = {
@@ -202,7 +202,7 @@ if __name__ == '__main__':
         'feature_h5': os.path.join(args.data_dir, 'val_features.h5'),
         'vocab': vocab,
         'batch_size': args.batch_size,
-        'max_samples': 100,
+        'max_samples': args.num_val_samples,
         'num_workers': args.loader_num_workers,
     }
 
