@@ -3,7 +3,7 @@
 python scripts/train_film_model.py \
   --data-dir $data_dir \
   --exp-dir $exp_dir \
-  --exp-name film_2048hid \
+  --exp-name film_1024hid \
   --loader_num_workers 1 \
   --num_val_samples 149991 \
   --learning_rate 3e-4 \
@@ -19,7 +19,7 @@ python scripts/train_film_model.py \
   --weight_decay 1e-5 \
   --rnn_num_layers 1 \
   --rnn_wordvec_dim 200 \
-  --rnn_hidden_dim 2048 \
+  --rnn_hidden_dim 1024 \
   --rnn_output_batchnorm 0 \
   --classifier_downsample maxpoolfull \
   --classifier_proj_dim 512 \
