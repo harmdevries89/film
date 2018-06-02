@@ -3,7 +3,7 @@
 python scripts/train_film_model.py \
   --data-dir $data_dir \
   --exp-dir $exp_dir \
-  --exp-name film_1024hid \
+  --exp-name film_1024hid_grudec \
   --loader_num_workers 1 \
   --num_val_samples 149991 \
   --learning_rate 3e-4 \
@@ -14,7 +14,7 @@ python scripts/train_film_model.py \
   --module_batchnorm 1 \
   --classifier_batchnorm 1 \
   --bidirectional 0 \
-  --decoder_type linear \
+  --decoder_type gru \
   --encoder_type gru \
   --weight_decay 1e-5 \
   --rnn_num_layers 1 \
