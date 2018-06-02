@@ -1,13 +1,34 @@
 import argparse
 import vr.utils as utils
+import os
 import torch
 import torch.optim as optim
+import logging
 
+from logging.handlers import RotatingFileHandler
 from torch.autograd import Variable
+
 from vr.models import FiLMedNet
 from vr.models import FiLMGen
-
 from vr.data import ClevrDataLoader
+
+
+def create_logger(save_path):
+    logger = logging.getLogger()
+    # Debug = write everything
+    logger.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s')
+    file_handler = RotatingFileHandler(save_path, 'a', 1000000, 1)
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    steam_handler = logging.StreamHandler()
+    steam_handler.setLevel(logging.INFO)
+    logger.addHandler(steam_handler)
+
+    return logger
 
 def eval_epoch(loader, film_gen, filmed_net, opt=None):
     loss_fn = torch.nn.CrossEntropyLoss().cuda()
@@ -42,12 +63,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Input data
-    parser.add_argument('--train_question_h5', default='data/train_questions.h5')
-    parser.add_argument('--train_features_h5', default='data/train_features.h5')
-    parser.add_argument('--val_question_h5', default='data/val_questions.h5')
-    parser.add_argument('--val_features_h5', default='data/val_features.h5')
-    parser.add_argument('--feature_dim', default='1024,14,14')
-    parser.add_argument('--vocab_json', default='data/vocab.json')
+    parser.add_argument('--data-dir', type=str, default='./data')
+    parser.add_argument('--exp-dir', type=str, default='./exp')
+    parser.add_argument('--exp-name', type=str, default='test')
 
     parser.add_argument('--loader_num_workers', type=int, default=1)
 
@@ -70,8 +88,6 @@ if __name__ == '__main__':
     parser.add_argument('--module_batchnorm', default=0, type=int)
 
     # FiLM only options
-    parser.add_argument('--set_execution_engine_eval', default=0, type=int)
-    parser.add_argument('--program_generator_parameter_efficient', default=1, type=int)
     parser.add_argument('--rnn_output_batchnorm', default=0, type=int)
     parser.add_argument('--bidirectional', default=0, type=int)
     parser.add_argument('--encoder_type', default='gru', type=str,
@@ -114,17 +130,16 @@ if __name__ == '__main__':
     parser.add_argument('--reward_decay', default=0.9, type=float)
     parser.add_argument('--weight_decay', default=0, type=float)
 
-    # Output options
-    parser.add_argument('--checkpoint_path', default='data/checkpoint.pt')
-    parser.add_argument('--randomize_checkpoint_path', type=int, default=0)
-    parser.add_argument('--avoid_checkpoint_override', default=0, type=int)
-    parser.add_argument('--record_loss_every', default=1, type=int)
-    parser.add_argument('--checkpoint_every', default=10000, type=int)
-    parser.add_argument('--time', default=0, type=int)
-
     args = parser.parse_args()
 
-    vocab = utils.load_vocab(args.vocab_json)
+    exp_dir = os.path.join(args.exp_dir, args.exp_name)
+    if not os.path.exists(exp_dir):
+        os.mkdir(exp_dir)
+
+    logger = create_logger(os.path.join(exp_dir, 'log.txt'))
+    logger.info(args)
+
+    vocab = utils.load_vocab(os.path.join(args.data_dir, 'vocab.json'))
 
     film_gen = FiLMGen(encoder_vocab_size=len(vocab['question_token_to_idx']),
                        wordvec_dim=args.rnn_wordvec_dim,
@@ -174,28 +189,44 @@ if __name__ == '__main__':
     opt = optim.Adam(params, lr=args.learning_rate, weight_decay=args.weight_decay)
 
     train_loader_kwargs = {
-        'question_h5': args.train_question_h5,
-        'feature_h5': args.train_features_h5,
+        'question_h5': os.path.join(args.data_dir, 'train_questions.h5'),
+        'feature_h5': os.path.join(args.data_dir, 'train_features.h5'),
         'vocab': vocab,
         'batch_size': args.batch_size,
         'shuffle': False,
-        'max_samples': args.num_train_samples,
+        'max_samples': 100,
         'num_workers': args.loader_num_workers,
     }
     val_loader_kwargs = {
-        'question_h5': args.val_question_h5,
-        'feature_h5': args.val_features_h5,
+        'question_h5': os.path.join(args.data_dir, 'val_questions.h5'),
+        'feature_h5': os.path.join(args.data_dir, 'val_features.h5'),
         'vocab': vocab,
         'batch_size': args.batch_size,
-        'max_samples': args.num_val_samples,
+        'max_samples': 100,
         'num_workers': args.loader_num_workers,
     }
 
     with ClevrDataLoader(**train_loader_kwargs) as train_loader, \
             ClevrDataLoader(**val_loader_kwargs) as val_loader:
-        for _ in range(25):
+        best_val_acc = 0.0
+        for i in range(30):
+            logger.info('Epoch ' + str(i))
             train_loss, train_acc = eval_epoch(train_loader, film_gen, filmed_net, opt=opt)
             valid_loss, valid_acc = eval_epoch(val_loader, film_gen, filmed_net)
-            print(train_loss, train_acc, valid_loss, valid_acc)
+
+            if train_loss.ndim == 1:
+                train_loss = train_loss[0]
+                valid_loss = valid_loss[0]
+            logger.info("{}, {}, {}, {}".format(train_loss, train_acc, valid_loss, valid_acc))
+
+            if valid_acc > best_val_acc:
+                best_val_acc = valid_acc
+                state = dict()
+                state['film_gen'] = film_gen.state_dict()
+                state['filmed_net'] = filmed_net.state_dict()
+                state['args'] = args
+                torch.save(state, os.path.join(exp_dir, 'model.pt'))
+
+
 
 

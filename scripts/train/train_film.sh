@@ -1,16 +1,10 @@
 #!/bin/bash
 
-exp_name=film
-
 python scripts/train_film_model.py \
-  --train_question_h5 "$data_dir/train_questions.h5" \
-  --val_question_h5 "$data_dir/val_questions.h5" \
-  --train_features_h5 "$data_dir/train_features.h5" \
-  --val_features_h5 "$data_dir/val_features.h5" \
-  --vocab_json "$data_dir/vocab.json" \
-  --shuffle_train_data 0 \
+  --data-dir $data_dir \
+  --exp-dir $exp_dir \
+  --exp-name film2 \
   --loader_num_workers 1 \
-  --record_loss_every 100 \
   --num_val_samples 149991 \
   --learning_rate 3e-4 \
   --batch_size 64 \
@@ -44,5 +38,4 @@ python scripts/train_film_model.py \
   --gamma_baseline 1 \
   --use_gamma 1 \
   --use_beta 1 \
-  --condition_method bn-film \
-  --program_generator_parameter_efficient 1
+  --condition_method bn-film
