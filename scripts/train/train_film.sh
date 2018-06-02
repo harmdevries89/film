@@ -3,7 +3,7 @@
 python scripts/train_film_model.py \
   --data-dir $data_dir \
   --exp-dir $exp_dir \
-  --exp-name film2 \
+  --exp-name film_4096hid \
   --loader_num_workers 1 \
   --num_val_samples 149991 \
   --learning_rate 3e-4 \
