@@ -80,60 +80,55 @@ class FiLMGen(nn.Module):
     expand_embedding_vocab(self.encoder_embed, token_to_idx,
                            word2vec=word2vec, std=std)
 
-  def get_dims(self, x=None):
-    V_in = self.encoder_embed.num_embeddings
-    V_out = self.cond_feat_size
-    D = self.encoder_embed.embedding_dim
-    H = self.encoder_rnn.hidden_size
-    H_full = self.encoder_rnn.hidden_size * self.num_dir
-    L = self.encoder_rnn.num_layers * self.num_dir
-
-    N = x.size(0) if x is not None else None
-    T_in = x.size(1) if x is not None else None
-    T_out = self.num_modules
-    return V_in, V_out, D, H, H_full, L, N, T_in, T_out
-
   def before_rnn(self, x, replace=0):
     N, T = x.size()
-    idx = torch.LongTensor(N).fill_(T - 1)
+    mask = Variable(torch.FloatTensor(N, T).fill_(1.0))
 
     # Find the last non-null element in each sequence.
     x_cpu = x.cpu()
     for i in range(N):
       for t in range(T - 1):
         if x_cpu.data[i, t] != self.NULL and x_cpu.data[i, t + 1] == self.NULL:
-          idx[i] = t
+          mask[i, t+1:] = 0.0
           break
-    idx = idx.type_as(x.data)
+
+    if x.is_cuda:
+      mask = mask.cuda()
+
     x[x.data == self.NULL] = replace
-    return x, Variable(idx)
+    return x, mask
 
   def encoder(self, x):
-    V_in, V_out, D, H, H_full, L, N, T_in, T_out = self.get_dims(x=x)
-    x, idx = self.before_rnn(x)  # Tokenized word sequences (questions), end index
-    embed = self.encoder_embed(x)
-    h0 = Variable(torch.zeros(L, N, H).type_as(embed.data))
+    out = dict()
+    x, out['mask'] = self.before_rnn(x)  # Tokenized word sequences (questions), end index
+    out['embs'] = self.encoder_embed(x)
+    L, N, H = self.encoder_rnn.num_layers * self.num_dir, x.size(0), self.encoder_rnn.hidden_size
+    h0 = Variable(torch.zeros(L, N, H).type_as(out['embs'].data))
 
     if self.encoder_type == 'lstm':
-      c0 = Variable(torch.zeros(L, N, H).type_as(embed.data))
-      out, _ = self.encoder_rnn(embed, (h0, c0))
+      c0 = Variable(torch.zeros(L, N, H).type_as(out['embs'].data))
+      out['hs'], _ = self.encoder_rnn(out['embs'], (h0, c0))
     elif self.encoder_type == 'gru':
-      out, _ = self.encoder_rnn(embed, h0)
+      out['hs'], _ = self.encoder_rnn(out['embs'], h0)
+
+    return out
+
+  def decoder(self, encoded, h0=None, c0=None):
+    N, T_out, V_out = encoded['mask'].size(0), self.num_modules, self.cond_feat_size
 
     # Pull out the hidden state for the last non-null value in each input
-    idx = idx.view(N, 1, 1).expand(N, 1, H_full)
-    return out.gather(1, idx).view(N, H_full)
-
-  def decoder(self, encoded, dims, h0=None, c0=None):
-    V_in, V_out, D, H, H_full, L, N, T_in, T_out = dims
+    seq_lens = encoded['mask'].sum(1).long() - 1
+    last_hidden_state = encoded['hs'][torch.arange(N).long().cuda(), seq_lens, :]
+    print(last_hidden_state.size())
 
     if self.decoder_type == 'linear':
       # (N x H) x (H x T_out*V_out) -> (N x T_out*V_out) -> N x T_out x V_out
-      return self.decoder_linear(encoded).view(N, T_out, V_out), (None, None)
+      return self.decoder_linear(last_hidden_state).view(N, T_out, V_out), (None, None)
 
-    encoded_repeat = encoded.view(N, 1, H).expand(N, T_out, H)
+    L, H = self.encoder_rnn.num_layers * self.num_dir, self.encoder_rnn.hidden_size
+    encoded_repeat = last_hidden_state.view(N, 1, H).expand(N, T_out, H)
     if not h0:
-      h0 = Variable(torch.zeros(L, N, H).type_as(encoded.data))
+      h0 = Variable(torch.zeros(L, N, H).type_as(last_hidden_state.data))
 
     if self.decoder_type == 'lstm':
       if not c0:
@@ -150,11 +145,12 @@ class FiLMGen(nn.Module):
     output_shaped = linear_output.view(N, T_out, V_out)
     return output_shaped, (ht, ct)
 
+
   def forward(self, x):
     if self.debug_every <= -2:
       pdb.set_trace()
     encoded = self.encoder(x)
-    film_pre_mod, _ = self.decoder(encoded, self.get_dims(x=x))
+    film_pre_mod, _ = self.decoder(encoded)
     film = self.modify_output(film_pre_mod, gamma_option=self.gamma_option,
                               gamma_shift=self.gamma_baseline)
     return film
