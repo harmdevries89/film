@@ -11,7 +11,7 @@ from torch.autograd import Variable
 import torchvision.models
 
 from vr.models.layers import init_modules, GlobalAveragePool, Flatten
-from vr.models.layers import build_classifier, build_stem
+from vr.models.layers import build_classifier, build_stem, Classifier
 import vr.programs
 
 
@@ -54,6 +54,7 @@ class FiLMedNet(nn.Module):
                use_coords=1,
                debug_every=float('inf'),
                print_verbose_every=float('inf'),
+               late_fusion_question=True,
                verbose=True,
                ):
     super(FiLMedNet, self).__init__()
@@ -75,6 +76,7 @@ class FiLMedNet(nn.Module):
     self.use_coords_freq = use_coords
     self.debug_every = debug_every
     self.print_verbose_every = print_verbose_every
+    self.question_late_fusion = late_fusion_question
 
     # Initialize helper variables
     self.stem_use_coords = (stem_stride == 1) and (self.use_coords_freq > 0)
@@ -126,14 +128,14 @@ class FiLMedNet(nn.Module):
       self.function_modules[fn_num] = mod
 
     # Initialize output classifier
-    self.classifier = build_classifier(module_dim + self.num_extra_channels, module_H, module_W,
-                                       num_answers, classifier_fc_layers, classifier_proj_dim,
-                                       classifier_downsample, with_batchnorm=classifier_batchnorm,
-                                       dropout=classifier_dropout)
+    self.classifier = Classifier(module_dim + self.num_extra_channels, module_H,
+                                 num_answers, fc_dim=classifier_fc_layers[0], proj_dim=classifier_proj_dim,
+                                 with_batchnorm=classifier_batchnorm,
+                                 late_fusion_question=late_fusion_question)
 
     init_modules(self.modules())
 
-  def forward(self, x, film, save_activations=False):
+  def forward(self, x, film_inp, save_activations=False):
     # Initialize forward pass and externally viewable activations
     self.fwd_count += 1
     if save_activations:
@@ -149,10 +151,10 @@ class FiLMedNet(nn.Module):
     betas = None
     if self.condition_method == 'concat':
       # Use parameters usually used to condition via FiLM instead to condition via concatenation
-      cond_params = film[:,:,:2*self.module_dim]
+      cond_params = film_inp['film_params'][:,:,:2*self.module_dim]
       cond_maps = cond_params.unsqueeze(3).unsqueeze(4).expand(cond_params.size() + x.size()[-2:])
     else:
-      gammas, betas = torch.split(film[:,:,:2*self.module_dim], self.module_dim, dim=-1)
+      gammas, betas = torch.split(film_inp['film_params'][:,:,:2*self.module_dim], self.module_dim, dim=-1)
       if not self.use_gamma:
         gammas = self.default_weight.expand_as(gammas)
       if not self.use_beta:
@@ -199,7 +201,7 @@ class FiLMedNet(nn.Module):
       final_module_output = torch.cat([final_module_output, batch_coords], 1)
     if save_activations:
       self.cf_input = final_module_output
-    out = self.classifier(final_module_output)
+    out = self.classifier(final_module_output, film_inp['last_state'])
 
     if ((self.fwd_count % self.debug_every) == 0) or (self.debug_every <= -1):
       pdb.set_trace()

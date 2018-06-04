@@ -88,7 +88,48 @@ def build_stem(feature_dim, module_dim, num_layers=2, with_batchnorm=True,
   return nn.Sequential(*layers)
 
 
-def build_classifier(module_C, module_H, module_W, num_answers,
+class Classifier(nn.Module):
+
+  def __init__(self, feat_dim, spat_dim, num_answers, fc_dim=1024, proj_dim=512, late_fusion_question=True, q_hid_dim=1024,
+               with_batchnorm=True):
+    super(Classifier, self).__init__()
+    self.late_fusion_question = late_fusion_question
+    self.with_batchnorm = with_batchnorm
+    self.proj_conv = nn.Conv2d(feat_dim, proj_dim, kernel_size=1)
+
+    self.pool = nn.MaxPool2d(kernel_size=spat_dim, stride=spat_dim, padding=0)
+    if late_fusion_question:
+      self.q_proj = nn.Linear(q_hid_dim, proj_dim)
+      self.fc_proj = nn.Linear(2*proj_dim, fc_dim)
+    else:
+      self.fc_proj = nn.Linear(proj_dim, fc_dim)
+    self.final_layer = nn.Linear(fc_dim, num_answers)
+
+    self.relu = nn.ReLU(inplace=True)
+    if self.with_batchnorm:
+      self.bn_2d = nn.BatchNorm2d(proj_dim)
+      self.bn = nn.BatchNorm1d(fc_dim)
+
+  def forward(self, x, q=None):
+    x = self.proj_conv(x)
+    if self.with_batchnorm:
+      x = self.bn_2d(x)
+    x = self.relu(x)
+    x = self.pool(x)
+    x = x.view(x.size(0), -1)
+    if self.late_fusion_question:
+      q = self.q_proj(q)
+      x_and_q = torch.cat([x, q], dim=1)
+      fused = self.fc_proj(x_and_q)
+    else:
+      fused = self.fc_proj(x)
+    if self.with_batchnorm:
+      fused = self.bn(fused)
+    fused = self.relu(fused)
+    return self.final_layer(fused)
+
+
+def build_classifier(module_C, module_H, module_W,
                      fc_dims=[], proj_dim=None, downsample='maxpool2',
                      with_batchnorm=True, dropout=0):
   layers = []

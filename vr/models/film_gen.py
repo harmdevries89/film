@@ -114,16 +114,18 @@ class FiLMGen(nn.Module):
     return out
 
   def decoder(self, encoded, h0=None, c0=None):
+    out = {}
     N, T_out, V_out = encoded['mask'].size(0), self.num_modules, self.cond_feat_size
 
     # Pull out the hidden state for the last non-null value in each input
     seq_lens = encoded['mask'].sum(1).long() - 1
     last_hidden_state = encoded['hs'][torch.arange(N).long().cuda(), seq_lens, :]
-    print(last_hidden_state.size())
+    out['last_state'] = last_hidden_state
 
     if self.decoder_type == 'linear':
       # (N x H) x (H x T_out*V_out) -> (N x T_out*V_out) -> N x T_out x V_out
-      return self.decoder_linear(last_hidden_state).view(N, T_out, V_out), (None, None)
+      out['film_params'] = self.decoder_linear(last_hidden_state).view(N, T_out, V_out)
+      return out
 
     L, H = self.encoder_rnn.num_layers * self.num_dir, self.encoder_rnn.hidden_size
     encoded_repeat = last_hidden_state.view(N, 1, H).expand(N, T_out, H)
@@ -143,17 +145,21 @@ class FiLMGen(nn.Module):
     if self.output_batchnorm:
       linear_output = self.output_bn(linear_output)
     output_shaped = linear_output.view(N, T_out, V_out)
-    return output_shaped, (ht, ct)
+
+    out['film_params'] = output_shaped
+    out['state'] = (ht, ct)
+
+    return out
 
 
   def forward(self, x):
     if self.debug_every <= -2:
       pdb.set_trace()
     encoded = self.encoder(x)
-    film_pre_mod, _ = self.decoder(encoded)
-    film = self.modify_output(film_pre_mod, gamma_option=self.gamma_option,
+    out = self.decoder(encoded)
+    out['film_params'] = self.modify_output(out['film_params'], gamma_option=self.gamma_option,
                               gamma_shift=self.gamma_baseline)
-    return film
+    return out
 
   def modify_output(self, out, gamma_option='linear', gamma_scale=1, gamma_shift=0,
                     beta_option='linear', beta_scale=1, beta_shift=0):

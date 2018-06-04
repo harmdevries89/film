@@ -42,8 +42,8 @@ def eval_epoch(loader, film_gen, filmed_net, opt=None):
         answers_var = Variable(answers.cuda())
 
 
-        film_params = film_gen.forward(questions_var)
-        scores = filmed_net.forward(feats_var, film_params)
+        out_gen = film_gen.forward(questions_var)
+        scores = filmed_net.forward(feats_var, out_gen)
 
         loss = loss_fn(scores, answers_var)
         total_loss += loss.cpu().data.numpy()
@@ -124,6 +124,7 @@ if __name__ == '__main__':
     parser.add_argument('--classifier_fc_dims', default='1024')
     parser.add_argument('--classifier_batchnorm', default=0, type=int)
     parser.add_argument('--classifier_dropout', default=0, type=float)
+    parser.add_argument('--classifier_late_fusion', type=int, default=0)
 
     parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--learning_rate', default=5e-4, type=float)
@@ -182,7 +183,8 @@ if __name__ == '__main__':
                            condition_pattern=[],
                            use_gamma=True,
                            use_beta=True,
-                           use_coords=args.use_coords)
+                           use_coords=args.use_coords,
+                           late_fusion_question=(args.classifier_late_fusion == 1))
     filmed_net = filmed_net.cuda()
 
     params = list(film_gen.parameters()) + list(filmed_net.parameters())
