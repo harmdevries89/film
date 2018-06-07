@@ -184,7 +184,8 @@ if __name__ == '__main__':
                            use_gamma=True,
                            use_beta=True,
                            use_coords=args.use_coords,
-                           late_fusion_question=(args.classifier_late_fusion == 1))
+                           late_fusion_question=(args.classifier_late_fusion == 1),
+                           rnn_hidden_dim=args.rnn_hidden_dim)
     filmed_net = filmed_net.cuda()
 
     params = list(film_gen.parameters()) + list(filmed_net.parameters())

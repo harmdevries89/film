@@ -55,6 +55,7 @@ class FiLMedNet(nn.Module):
                debug_every=float('inf'),
                print_verbose_every=float('inf'),
                late_fusion_question=True,
+               rnn_hidden_dim=1024,
                verbose=True,
                ):
     super(FiLMedNet, self).__init__()
@@ -131,7 +132,8 @@ class FiLMedNet(nn.Module):
     self.classifier = Classifier(module_dim + self.num_extra_channels, module_H,
                                  num_answers, fc_dim=classifier_fc_layers[0], proj_dim=classifier_proj_dim,
                                  with_batchnorm=classifier_batchnorm,
-                                 late_fusion_question=late_fusion_question)
+                                 late_fusion_question=late_fusion_question,
+                                 q_hid_dim=rnn_hidden_dim)
 
     init_modules(self.modules())
 

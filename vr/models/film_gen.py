@@ -69,8 +69,12 @@ class FiLMGen(nn.Module):
                                 dropout=rnn_dropout, bidirectional=self.bidirectional)
     self.decoder_rnn = init_rnn(self.decoder_type, hidden_dim, hidden_dim, rnn_num_layers,
                                 dropout=rnn_dropout, bidirectional=self.bidirectional)
-    self.decoder_linear = nn.Linear(
+    if decoder_type == 'linear':
+      self.decoder_linear = nn.Linear(
       hidden_dim * self.num_dir, self.num_modules * self.cond_feat_size)
+    else:
+      self.decoder_linear = nn.Linear(
+        hidden_dim * self.num_dir, self.cond_feat_size)
     if self.output_batchnorm:
       self.output_bn = nn.BatchNorm1d(self.cond_feat_size, affine=True)
 
@@ -144,6 +148,7 @@ class FiLMGen(nn.Module):
     linear_output = self.decoder_linear(rnn_output_2d)
     if self.output_batchnorm:
       linear_output = self.output_bn(linear_output)
+
     output_shaped = linear_output.view(N, T_out, V_out)
 
     out['film_params'] = output_shaped
