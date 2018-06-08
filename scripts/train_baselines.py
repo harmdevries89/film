@@ -38,7 +38,6 @@ def eval_epoch(loader, model, opt=None):
         feats_var = Variable(feats.cuda())
         answers_var = Variable(answers.cuda())
 
-
         scores = model.forward(questions_var, feats_var)
 
         loss = loss_fn(scores, answers_var)
@@ -69,6 +68,7 @@ class SimpleFusionModel(nn.Module):
         self.pool = nn.MaxPool2d(kernel_size=14, stride=14, padding=0)
         self.fused_layer = nn.Linear(proj_dim, fused_dim)
         self.classification_layer = nn.Linear(fused_dim, num_answers)
+        self.relu = nn.ReLU()
 
     def before_rnn(self, x, replace=0):
         N, T = x.size()
@@ -116,7 +116,7 @@ class SimpleFusionModel(nn.Module):
         concat_features = torch.cat([projected_image, projected_question], 1)
         fused_features = self.film_conv(concat_features)
         pooled_features = self.pool(fused_features).squeeze()
-        out = self.classification_layer(self.fused_layer(pooled_features))
+        out = self.classification_layer(self.relu(self.fused_layer(pooled_features)))
         return out
 
 
