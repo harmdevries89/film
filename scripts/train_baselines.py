@@ -69,6 +69,9 @@ class SimpleFusionModel(nn.Module):
         self.fused_layer = nn.Linear(proj_dim, fused_dim)
         self.classification_layer = nn.Linear(fused_dim, num_answers)
         self.relu = nn.ReLU()
+        self.bn1 = nn.BatchNorm2d(proj_dim, affine=True)
+        self.bn2 = nn.BatchNorm2d(proj_dim, affine=True)
+        self.bn3 = nn.BatchNorm1d(fused_dim, affine=True)
 
     def before_rnn(self, x, replace=0):
         N, T = x.size()
@@ -111,12 +114,12 @@ class SimpleFusionModel(nn.Module):
         projected_question = self.proj_layer(last_state)
         projected_question = projected_question.view(question.size(0), projected_question.size(1), 1, 1).repeat(1, 1, 14, 14)
 
-        projected_image = self.proj_conv(image)
+        projected_image = self.bn1(self.proj_conv(image))
 
         concat_features = torch.cat([projected_image, projected_question], 1)
-        fused_features = self.film_conv(concat_features)
+        fused_features = self.bn2(self.film_conv(concat_features))
         pooled_features = self.pool(fused_features).squeeze()
-        out = self.classification_layer(self.relu(self.fused_layer(pooled_features)))
+        out = self.classification_layer(self.relu(self.bn3(self.fused_layer(pooled_features))))
         return out
 
 
