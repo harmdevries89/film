@@ -62,15 +62,13 @@ class SimpleFusionModel(nn.Module):
         self.encoder_rnn = nn.GRU(wordvec_dim, hidden_dim, batch_first=True)
         self.NULL = 0
         self.num_dir = 1
+        self.concat_resblock = ConcatResblock(proj_dim, residual_connection=False)
         self.proj_conv = nn.Conv2d(1024, proj_dim, 1)
         self.proj_layer = nn.Linear(hidden_dim, proj_dim)
-        self.film_conv = nn.Conv2d(2*proj_dim, proj_dim, 1)
         self.pool = nn.MaxPool2d(kernel_size=14, stride=14, padding=0)
         self.fused_layer = nn.Linear(proj_dim, fused_dim)
         self.classification_layer = nn.Linear(fused_dim, num_answers)
         self.relu = nn.ReLU()
-        self.bn1 = nn.BatchNorm2d(proj_dim, affine=True)
-        self.bn2 = nn.BatchNorm2d(proj_dim, affine=True)
         self.bn3 = nn.BatchNorm1d(fused_dim, affine=True)
 
     def before_rnn(self, x, replace=0):
@@ -112,15 +110,36 @@ class SimpleFusionModel(nn.Module):
         encoded = self.encoder(question)
         last_state = self.get_last_state(encoded['hs'], encoded['mask'])
         projected_question = self.proj_layer(last_state)
-        projected_question = projected_question.view(question.size(0), projected_question.size(1), 1, 1).repeat(1, 1, 14, 14)
 
-        projected_image = self.bn1(self.proj_conv(image))
+        projected_image = self.proj_conv(image)
 
-        concat_features = torch.cat([projected_image, projected_question], 1)
-        fused_features = self.bn2(self.film_conv(concat_features))
-        pooled_features = self.pool(fused_features).squeeze()
+        features = self.concat_resblock(projected_question, projected_image)
+
+        pooled_features = self.pool(features).squeeze()
         out = self.classification_layer(self.relu(self.bn3(self.fused_layer(pooled_features))))
         return out
+
+class ConcatResblock(nn.Module):
+
+    def __init__(self, proj_dim, residual_connection=True):
+        super(ConcatResblock, self).__init__()
+        self.conv1 = nn.Conv2d(2 * proj_dim, proj_dim, 1)
+        self.conv2 = nn.Conv2d(proj_dim, proj_dim, 1)
+        self.bn = nn.BatchNorm2d(proj_dim, affine=True)
+        self.relu = nn.ReLU(inplace=True)
+        self.residual_connection = residual_connection
+
+
+    def forward(self, question, image):
+        expanded_question = question.view(question.size(0), question.size(1), 1, 1).repeat(1, 1, image.size(2), image.size(3))
+        concat_features = torch.cat([image, expanded_question], 1)
+        features = self.relu(self.conv1(concat_features))
+        features = self.relu(self.bn(self.conv2(features)))
+
+        if self.residual_connection:
+            features = image + features
+        return features
+
 
 
 
