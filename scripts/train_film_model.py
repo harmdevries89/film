@@ -129,7 +129,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--learning_rate', default=5e-4, type=float)
     parser.add_argument('--reward_decay', default=0.9, type=float)
-    parser.add_argument('--weight_decay', default=0, type=float)
+    parser.add_argument('--film_gen_weight_decay', default=0, type=float)
+    parser.add_argument('--filmed_net_weight_decay', default=0, type=float)
 
     args = parser.parse_args()
 
@@ -188,8 +189,12 @@ if __name__ == '__main__':
                            rnn_hidden_dim=args.rnn_hidden_dim)
     filmed_net = filmed_net.cuda()
 
-    params = list(film_gen.parameters()) + list(filmed_net.parameters())
-    opt = optim.Adam(params, lr=args.learning_rate, weight_decay=args.weight_decay)
+    params = list()
+    for p in filmed_net.parameters():
+        params.append({'params': p, 'weight_decay': args.filmed_net_weight_decay})
+    for p in film_gen.parameters():
+        params.append({'params': p, 'weight_decay': args.film_gen_weight_decay})
+    opt = optim.Adam(params, lr=args.learning_rate)
 
     train_loader_kwargs = {
         'question_h5': os.path.join(args.data_dir, 'train_questions.h5'),
