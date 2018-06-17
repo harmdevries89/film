@@ -211,7 +211,7 @@ if __name__ == '__main__':
             ClevrDataLoader(**val_loader_kwargs) as val_loader:
         best_val_acc = 0.0
 
-        for i in range(30):
+        for i in range(50):
             logger.info('Epoch ' + str(i))
             train_loss, train_acc = eval_epoch(train_loader, model, opt=opt)
             valid_loss, valid_acc = eval_epoch(val_loader, model)
